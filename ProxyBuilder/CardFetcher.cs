@@ -13,37 +13,108 @@ namespace ProxyBuilder
 {
     class CardFetcher
     {
+        private JArray defaultCardData = null;
+        private Dictionary<string, string> setNames = new Dictionary<string, string>();
+
+        private const string API_URL_SETLIST = "https://api.scryfall.com/sets";
+
         public CardFetcher()
         {
             InitCardData();
+            InitSetData();
         }
 
-        const string API_URL_CARDSEARCH = "https://api.scryfall.com/cards/named?exact={0}{1}";
-
-        private async Task<JObject> GetCardJSON(string cardName, string set)
+        private async void InitSetData()
         {
-            var request = WebRequest.CreateHttp(String.Format(API_URL_CARDSEARCH, cardName.Replace(' ', '+'), $"&set={set}"));
+            var request = WebRequest.CreateHttp(API_URL_SETLIST);
             var response = await request.GetResponseAsync();
 
             using (var stream = response.GetResponseStream())
             using (var tReader = new StreamReader(stream))
             using (var reader = new JsonTextReader(tReader))
             {
-                return JObject.Load(reader);
+                var setList = JObject.Load(reader);
+
+                if (!setList.TryGetValue("data", out JToken value))
+                {
+                    return;
+                }
+                if (!(value is JArray dataArray))
+                {
+                    return;
+                }
+                foreach (JObject setItem in dataArray)
+                {
+                    if (!setItem.TryGetValue("code", out JToken setCode))
+                    {
+                        continue;
+                    }
+                    if (!setItem.TryGetValue("name", out JToken setName))
+                    {
+                        continue;
+                    }
+                    setNames.Add(setCode.ToString().ToLower(), setName.ToString());
+                }
             }
         }
 
-        private JArray defaultCardData = null;
-
-        private async Task<string[]> FindSets(string name)
+        public string GetSetName(string setCode)
         {
-            if (defaultCardData == null)
+            if (String.IsNullOrWhiteSpace(setCode))
             {
-                InitCardData();
+                return "";
             }
 
+            return setNames[setCode];
+        }
+
+        public string GetSetKey(string setName)
+        {
+            if (String.IsNullOrWhiteSpace(setName))
+            {
+                return "";
+            }
+
+            return setNames.First(x => x.Value == setName).Value;
+        }
+        
+        private JObject FindCardJSON(string name, string set)
+        {
             var children = defaultCardData.Children<JObject>();
-            //var childObjects = children.Where(x => x.GetValue("name").ToString().Equals(name));
+            var result = children.FirstOrDefault(evaluateSplitCard);
+            return result;
+
+            bool evaluateSplitCard(JObject card)
+            {
+                var cardName = card.GetValue("name").ToString();
+                var cardSet = card.GetValue("set").ToString();
+
+                if (!String.IsNullOrWhiteSpace(set) && !set.Equals(cardSet))
+                {
+                    return false;
+                }
+                if (cardName.Equals(name))
+                {
+                    return true;
+                }
+                else if (cardName.StartsWith($"{name} // "))
+                {
+                    return true;
+                }
+                else if (cardName.EndsWith($" // {name}"))
+                {
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+        }
+
+        private string[] FindSets(string name)
+        {
+            var children = defaultCardData.Children<JObject>();
             var childObjects = children.Where(evaluateSplitCard);
             var sets = childObjects.Select(x => x.GetValue("set").ToString()).ToArray();
             return sets;
@@ -81,11 +152,11 @@ namespace ProxyBuilder
             }
         }
 
-        public async Task<string> GetImage(string name, string set)
+        public string GetImage(string name, string set)
         {
-            JObject card = await GetCardJSON(name, set);
+            JObject card = FindCardJSON(name, set);
 
-            if(!card.TryGetValue("image_uris", out JToken value))
+            if (!card.TryGetValue("image_uris", out JToken value))
             {
                 return null;
             }
@@ -100,10 +171,10 @@ namespace ProxyBuilder
             return result.ToString();
         }
 
-        public async Task<IEnumerable<string>> GetTransformImages(string name, string set)
+        public IEnumerable<string> GetTransformImages(string name, string set)
         {
             List<string> result = new List<string>();
-            JObject card = await GetCardJSON(name, set);
+            JObject card = FindCardJSON(name, set);
 
             if (!card.TryGetValue("card_faces", out JToken faces))
             {
@@ -130,11 +201,11 @@ namespace ProxyBuilder
             return result;
         }
 
-        public async Task<ProxyItem> GetItem(string name)
+        public ProxyItem GetItem(string name)
         {
-            dynamic card = await GetCardJSON(name, "");
+            dynamic card = FindCardJSON(name, "");
 
-            var sets = await FindSets(name);
+            var sets = FindSets(name);
 
             return new ProxyItem()
             {
@@ -144,7 +215,7 @@ namespace ProxyBuilder
             };
         }
 
-        public async Task<IEnumerable<ProxyItem>> ParseList(string deckList)
+        public IEnumerable<ProxyItem> ParseList(string deckList)
         {
             var lines = deckList.Split(Environment.NewLine.ToArray(), StringSplitOptions.RemoveEmptyEntries);
             List<ProxyItem> result = new List<ProxyItem>();
@@ -161,7 +232,7 @@ namespace ProxyBuilder
                     }
                     var name = parts[1].Trim();
 
-                    var item = await GetItem(name);
+                    var item = GetItem(name);
 
                     item.Count = count;
 

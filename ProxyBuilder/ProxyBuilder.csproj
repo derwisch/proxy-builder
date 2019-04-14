@@ -61,6 +61,7 @@
     <Compile Include="CardFetcher.cs" />
     <Compile Include="ProxyItem.cs" />
     <Compile Include="ProxyPrinter.cs" />
+    <Compile Include="SetValueConverter.cs" />
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>

@@ -20,16 +20,16 @@ namespace ProxyBuilder
             return fileName;
         }
 
-        public async void Print(IEnumerable<ProxyItem> items)
+        public void Print(IEnumerable<ProxyItem> items)
         {
             List<string> images = new List<string>();
             foreach (var item in items)
             {
-                var uri = await App.CardFetcher.GetImage(item.Name, item.SelectedSet);
+                var uri = App.CardFetcher.GetImage(item.Name, item.SelectedSet);
 
                 if (uri == null)
                 {
-                    var uris = await App.CardFetcher.GetTransformImages(item.Name, item.SelectedSet);
+                    var uris = App.CardFetcher.GetTransformImages(item.Name, item.SelectedSet);
 
                     foreach (var multiFaceUri in uris)
                     {
@@ -69,8 +69,8 @@ namespace ProxyBuilder
                     {
                         e.Graphics.DrawImage(
                             image,
-                            5f + 70f * (i % 3),
-                            5f + 90f * (i / 3),
+                            3.5f + 68.5f * (i % 3),
+                            3.5f + 90.5f * (i / 3),
                             66,
                             88);
                     }

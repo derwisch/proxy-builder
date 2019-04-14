@@ -18,10 +18,10 @@ namespace ProxyBuilder
             listItems.ItemsSource = ProxyItems;
         }
 
-        private async void BtnLoad_Click(object sender, RoutedEventArgs e)
+        private void BtnLoad_Click(object sender, RoutedEventArgs e)
         {
             ToggleLoading(true);
-            foreach (var item in await App.CardFetcher.ParseList(tbSource.Text))
+            foreach (var item in App.CardFetcher.ParseList(tbSource.Text))
             {
                 ProxyItems.Add(item);
             }
